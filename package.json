@@ -1,0 +1,24 @@
+{
+  "name": "lunsjkokk-helper",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Reads the Lunsjkokkene menu and order deadlines so lunch never gets forgotten again.",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "lunch": "node scripts/suggest.mjs",
+    "menu": "node scripts/fetch-menu.mjs",
+    "week": "node scripts/fetch-menu.mjs --week",
+    "login": "node scripts/auth.mjs login",
+    "whoami": "node scripts/auth.mjs status",
+    "test": "node scripts/test.mjs",
+    "snapshot": "node scripts/fetch-menu.mjs --week --json --out data",
+    "test:credentials": "node scripts/test-credentials.mjs",
+    "daily": "node scripts/daily.mjs",
+    "away": "node scripts/away.mjs",
+    "order": "node scripts/order-add.mjs",
+    "unorder": "node scripts/order-remove.mjs"
+  }
+}

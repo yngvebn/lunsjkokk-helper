@@ -1,0 +1,47 @@
+{
+  "$comment": "Template food profile. Copy to preferences.json and edit, or run /lunsj-preferences for an interview that fills it in and then checks it against the live menu. Values are weights and rules rather than a fixed list of favourites, so a profile survives the Ukesmeny rotation and catalogue changes.",
+  "owner": "your-name",
+
+  "proteins": {
+    "preferred": ["kylling", "skinke"],
+    "acceptable": ["laks", "fisk", "egg", "ost"],
+    "$note": "Substring matches against the product name and description, lowercase. 'preferred' scores +80, 'acceptable' +20. Norwegian words: kylling, svinekjøtt, skinke, bacon, storfekjøtt, roastbeef, laks, fisk, egg, ost, vegetar."
+  },
+
+  "avoid": {
+    "hard": [],
+    "soft": [],
+    "$note": "Allergen names as the API spells them: Gluten, Melk, Egg, Sennep, Sulfitt, Soya, Sesamfrø, Nøtter, Peanøtter, Fisk, Selleri, Svinekjøtt. 'hard' is excluded outright; 'soft' is only deprioritised. IMPORTANT: this reads a website's allergen field and is not a medical guarantee — for a real allergy, verify on the site."
+  },
+
+  "temperature": {
+    "default": "any",
+    "warmExceptions": [],
+    "$note": "'cold', 'warm' or 'any'. Only Ferdigretter and Dagens varmrett are warm; everything else is cold. 'warmExceptions' names specific warm dishes you like anyway."
+  },
+
+  "categories": {
+    "primary": ["brodmat"],
+    "secondary": ["wraps", "salater"],
+    "occasional": ["ferdigretter"],
+    "perDishOverrides": {},
+    "occasionalCooldownDays": 7,
+    "$note": "Slugs: ukesmeny, ferdigretter, brodmat, wraps, salater (plus lunsjtallerken, bakverk, kaker, drikke, dessert, dagligvarer, lunsjbuffet, lunsjpakke if you want them). primary scores +100, secondary +70, occasional +25. Categories listed nowhere are never suggested. perDishOverrides takes exact product names mapped to 'occasional-favourite' (a treat, held back inside the cooldown) or 'low' (deprioritised).",
+    "$example": "\"perDishOverrides\": { \"Lasagne\": \"occasional-favourite\", \"Pad Kra Pao\": \"low\" }"
+  },
+
+  "portion": {
+    "dagensRett": "Vanlig",
+    "$note": "'Vanlig' (79 kr) or 'Stor' (89 kr) for the variable Ukesmeny products."
+  },
+
+  "menuStrategy": {
+    "default": "alacarte",
+    "$note": "'alacarte' leads with the standing catalogue and surfaces the Ukesmeny only as an interruption; 'ukesmeny' leads with the day's dish. Only the two cold Ukesmeny slots (Dagens rett, Dagens påsmurt) are ever candidates."
+  },
+
+  "repetition": {
+    "rule": "never suggest the same item two days running",
+    "$note": "Descriptive. The enforced behaviour is: the previous day's order (or previous pick) is pushed down. Use --vary-week for a whole week of distinct picks."
+  }
+}

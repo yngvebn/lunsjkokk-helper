@@ -1,0 +1,7 @@
+node_modules/
+data/
+*credentials*.json
+away.json
+
+# personal, not shared
+preferences.json
