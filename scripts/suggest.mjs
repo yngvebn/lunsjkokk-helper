@@ -174,7 +174,8 @@ function renderSuggestion(r, { includeAway = false } = {}) {
     const why = r.away.reason ? ` (${r.away.reason})` : '';
     out.push(`🏠 Not in the office${why} — no lunch needed.`);
     // The one case that must never be quiet: away, but an order exists. That's money
-    // about to buy a lunch nobody will eat, and only the user can cancel it.
+    // about to buy a lunch nobody will eat. Cancelling is automated, so name the
+    // command: an unactionable warning is how this ends up being ignored.
     if (order?.exists) {
       const o = order.order ?? {};
       out.push(
@@ -182,7 +183,7 @@ function renderSuggestion(r, { includeAway = false } = {}) {
         `⚠️ **But there IS an order for this day** — ${o.orderNumber ? `#${o.orderNumber}` : 'order number unavailable'} (${o.status ?? 'status unknown'})${o.items?.length ? `: ${o.items.map((i) => i.name).join(', ')}` : ''}.`,
         day.deadline.hasPassed
           ? `  The ${'13:00'} deadline passed ${osloTime(day.deadline.at)}, so it may be too late to cancel.`
-          : `  Cancel before ${osloTime(day.deadline.at)} — not automated, do it at https://lunsjkokkene.no/dashboard`,
+          : `  Cancel before ${osloTime(day.deadline.at)}: node scripts/order-remove.mjs ${day.deliveryDate} (dry run, then --yes)`,
       );
     }
     return out.join('\n');

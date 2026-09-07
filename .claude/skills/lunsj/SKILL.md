@@ -44,9 +44,26 @@ at lunchtime. So:
 Marking is idempotent, so re-running is harmless. Never remove an away day unless the user
 explicitly asks to be back in the office that day — the whole point is being asked once.
 
-If `add` or `daily.mjs` reports an **order already exists on an away day**, say so
-prominently with the cancellation deadline. Cancelling is not automated and only the user
-can do it, at https://lunsjkokkene.no/dashboard. Do not bury this under a suggestion.
+If `add`, `away.mjs check` or `daily.mjs` reports an **order already exists on an away
+day**, say so prominently with the cancellation deadline, and do not bury it under a
+suggestion.
+
+**Then offer to cancel it — cancelling IS automated.** `order-remove.mjs` does the write,
+with the same rules as any other order write: run the dry run, show what it says, and add
+`--yes` only once the user has said yes to that specific day.
+
+```bash
+node scripts/order-remove.mjs 2026-09-09          # dry run
+node scripts/order-remove.mjs 2026-09-09 --yes    # after the user confirms
+```
+
+Never say the user has to go to the dashboard themselves — that was true before
+`order-remove.mjs` existed and is now just an excuse to make them click. The dashboard is
+the fallback for the cases the script refuses: no `databaseId`, or a status past
+PROCESSING/ON_HOLD/PENDING, where the food is already made.
+
+Cancelling does **not** reopen the deadline. Before the cutoff, removing frees the day to
+order something else; after it, the day is simply lunchless. The dry run states which.
 
 ## Answering "what should I have for lunch?"
 

@@ -97,7 +97,11 @@ async function main() {
         const o = c.order ?? {};
         console.log(`  ${describeDate(c.date)} — ${o.orderNumber ? `#${o.orderNumber}` : 'order number unavailable'} (${o.status ?? '?'})${o.items?.length ? `: ${o.items.map((i) => i.name).join(', ')}` : ''}`);
       }
-      console.log('\nCancelling is not automated — do it at https://lunsjkokkene.no/dashboard');
+      // Cancelling IS automated (order-remove.mjs). Name the exact command rather than
+      // the website: the point of this tool is that nobody has to go clicking.
+      console.log('\nTo cancel, dry run first, then add --yes:');
+      for (const c of clashes) console.log(`  node scripts/order-remove.mjs ${c.date}`);
+      console.log('Or by hand at https://lunsjkokkene.no/dashboard');
       process.exitCode = 2;
       return;
     }

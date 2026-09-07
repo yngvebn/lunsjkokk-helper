@@ -154,7 +154,8 @@ function renderText({ authNote, clashes, open, suggestion, handled, byDate, away
           : `   cancel before ${osloTime(c.deadline.at)} (${formatCountdown(c.deadline.minutesLeft)} left)`,
       );
     }
-    console.log('   Cancelling is not automated: https://lunsjkokkene.no/dashboard\n');
+    console.log('   Cancel with: node scripts/order-remove.mjs <date>   (dry run, then --yes)');
+    console.log('   Or by hand: https://lunsjkokkene.no/dashboard\n');
   }
 
   if (suggestion) {
