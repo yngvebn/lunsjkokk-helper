@@ -149,6 +149,8 @@ export function rankDay(day, prefs, { avoidNames = new Set(), recentNames = [], 
         extras.push(entry);
         continue;
       }
+      // A dish they've ruled out: not an add-on, so not in extras either — just gone.
+      if (prefs.categories.perDishOverrides?.[item.name] === 'never') continue;
       const elig = occasional(item.name);
       const { score, reasons, tier, heldBack, heldBackReason } = scoreItem(entry, group.slug, prefs, {
         avoidNames,

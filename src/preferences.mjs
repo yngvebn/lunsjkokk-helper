@@ -123,6 +123,12 @@ export function validatePreferences(profile) {
     if (!total.length) problems.push('no categories listed — every suggestion would be empty');
     const dupes = total.filter((s, i) => total.indexOf(s) !== i);
     if (dupes.length) problems.push(`category in more than one tier: ${[...new Set(dupes)].join(', ')}`);
+    // A typo here fails open: "nevr" would quietly keep suggesting the dish.
+    for (const [name, value] of Object.entries(cats.perDishOverrides ?? {})) {
+      if (!['occasional-favourite', 'low', 'never'].includes(value)) {
+        problems.push(`categories.perDishOverrides["${name}"] must be "occasional-favourite", "low" or "never"`);
+      }
+    }
   }
 
   if (profile.proteins != null && !isObject(profile.proteins)) problems.push('"proteins" must be an object');

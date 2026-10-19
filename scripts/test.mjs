@@ -246,6 +246,13 @@ test('excluded add-ons go to extras, never candidates', () => {
   assert.ok(r.extras.some((e) => e.name === 'Engangsbestikk og serviett'));
 });
 
+test('a "never" dish is gone from candidates and extras alike', () => {
+  const prefs = { ...PREFS, categories: { ...PREFS.categories, perDishOverrides: { 'Baguette med ost': 'never' } } };
+  const r = rankDay(makeDay(), prefs);
+  assert.ok(!r.candidates.some((c) => c.name === 'Baguette med ost'));
+  assert.ok(!r.extras.some((e) => e.name === 'Baguette med ost'));
+});
+
 test('a disliked allergen sinks an item but never removes it', () => {
   const day = makeDay({
     alacarte: [

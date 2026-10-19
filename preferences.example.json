@@ -26,7 +26,7 @@
     "occasional": ["ferdigretter"],
     "perDishOverrides": {},
     "occasionalCooldownDays": 7,
-    "$note": "Slugs: ukesmeny, ferdigretter, brodmat, wraps, salater (plus lunsjtallerken, bakverk, kaker, drikke, dessert, dagligvarer, lunsjbuffet, lunsjpakke if you want them). primary scores +100, secondary +70, occasional +25. Categories listed nowhere are never suggested. perDishOverrides takes exact product names mapped to 'occasional-favourite' (a treat, held back inside the cooldown) or 'low' (deprioritised).",
+    "$note": "Slugs: ukesmeny, ferdigretter, brodmat, wraps, salater (plus lunsjtallerken, bakverk, kaker, drikke, dessert, dagligvarer, lunsjbuffet, lunsjpakke if you want them). primary scores +100, secondary +70, occasional +25. Categories listed nowhere are never suggested. perDishOverrides takes exact product names mapped to 'occasional-favourite' (a treat, held back inside the cooldown), 'low' (deprioritised) or 'never' (never suggested).",
     "$example": "\"perDishOverrides\": { \"Lasagne\": \"occasional-favourite\", \"Pad Kra Pao\": \"low\" }"
   },
 
