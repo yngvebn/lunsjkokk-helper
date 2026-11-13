@@ -196,7 +196,15 @@ function renderSuggestion(r, { includeAway = false } = {}) {
     const o = order.order ?? {};
     const what = o.items?.length ? `: ${o.items.map((i) => i.name).join(', ')}` : '';
     const num = o.orderNumber ? `#${o.orderNumber}` : 'order number unavailable';
-    out.push(`✅ Already ordered — ${num} (${o.status ?? 'status unknown'})${what}. Nothing to do.`);
+    out.push(`✅ Already ordered — ${num} (${o.status ?? 'status unknown'})${what}.`);
+    // Ordering days ahead is exactly how a must-have gets missed: the order predates the
+    // reason to change it. Say so while a swap is still possible; never order on top.
+    const missed = r.ukesmeny.mustHaves.filter((m) => !o.items?.some((i) => i.name === m.label));
+    if (missed.length && !d.hasPassed) {
+      out.push(...renderMustHaves(missed), `  To swap: order-remove.mjs ${day.deliveryDate}, then order-add.mjs ${day.deliveryDate} --dagens ${missed[0].slot} — only if you want to.`);
+    } else {
+      out.push('Nothing to do.');
+    }
     if (order.disagreement) {
       out.push(
         `  _note: only ${order.sources.join(' + ')} sees it — checkExistingOrder misses non-PROCESSING orders._`,
@@ -214,6 +222,7 @@ function renderSuggestion(r, { includeAway = false } = {}) {
     out.push('No candidate matched the profile — check the category filter.');
     return out.join('\n');
   }
+  if (r.ukesmeny.mustHaves.length) out.push(...renderMustHaves(r.ukesmeny.mustHaves));
   out.push('', `**Pick: ${top.name}** — ${top.price}, ${top.categoryName}`);
   out.push(`  ${top.reasons.join(' · ')}`);
   if (top.description) out.push(`  ${top.description.slice(0, 150)}`);
@@ -238,6 +247,12 @@ function renderSuggestion(r, { includeAway = false } = {}) {
     }
   }
   return out.join('\n');
+}
+
+function renderMustHaves(list) {
+  const out = ['', '⭐ **Must-have on the menu — this beats the pick:**'];
+  for (const m of list) out.push(`  **${m.label}** — ${m.dish} (${m.price ?? 'price unknown'}) · order-add.mjs --dagens ${m.slot}`);
+  return out;
 }
 
 main().catch((err) => {

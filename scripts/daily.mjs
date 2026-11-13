@@ -105,6 +105,19 @@ async function main() {
   }
 
   const handled = dates.filter((d) => byDate.get(d)?.exists);
+
+  // An order placed days ahead predates the menu reason to change it — that's how a
+  // must-have gets missed. Flag those while the deadline still allows a swap.
+  const swaps = [];
+  if (prefs.menuStrategy?.mustHave?.length) {
+    for (const date of handled) {
+      if (deadlinesFor(date, now).hasPassed) continue;
+      const day = buildDay({ date, weeklyMenu: await fetchWeeklyMenu(date), closedDays, catalogue, now });
+      const items = byDate.get(date).order?.items ?? [];
+      const missed = rankDay(day, prefs).ukesmeny.mustHaves.filter((m) => !items.some((i) => i.name === m.label));
+      if (missed.length) swaps.push({ date, day, missed, items });
+    }
+  }
   const awayUpcoming = dates.filter((d) => away.has(d));
 
   if (json) {
@@ -117,6 +130,7 @@ async function main() {
           clashes: clashes.map((c) => ({ date: c.date, order: c.status.order, deadline: c.deadline })),
           needsDecision: open,
           alreadyOrdered: handled.map((d) => ({ date: d, order: byDate.get(d).order })),
+          mustHaveSwaps: swaps.map((s) => ({ date: s.date, deadline: s.day.deadline, mustHaves: s.missed, ordered: s.items })),
           away: awayUpcoming,
           suggestion: suggestion && {
             date: suggestion.day.deliveryDate,
@@ -131,16 +145,27 @@ async function main() {
       ),
     );
   } else {
-    renderText({ authNote, clashes, open, suggestion, handled, byDate, awayUpcoming, now, today });
+    renderText({ authNote, clashes, open, suggestion, handled, byDate, awayUpcoming, now, today, swaps });
   }
 
   // Clash beats deadline: cancelling has a hard cutoff and costs money if missed.
   if (clashes.length) process.exitCode = 2;
   else if (next && deadlinesFor(next, now).cutoffDate === today) process.exitCode = 3;
+  else if (swaps.some((s) => deadlinesFor(s.date, now).cutoffDate === today)) process.exitCode = 3;
 }
 
-function renderText({ authNote, clashes, open, suggestion, handled, byDate, awayUpcoming, now, today }) {
+function renderText({ authNote, clashes, open, suggestion, handled, byDate, awayUpcoming, now, today, swaps = [] }) {
   if (authNote) console.log(`⚠ ${authNote}\n`);
+
+  for (const s of swaps) {
+    const d = s.day.deadline;
+    console.log(`⭐ MUST-HAVE on ${describeDate(s.date)}, but you ordered ${s.items.map((i) => i.name).join(', ') || 'something else'}`);
+    for (const m of s.missed) console.log(`   ${m.label}: ${m.dish}`);
+    console.log(
+      `   swap before ${osloTime(d.at)} (${formatCountdown(d.minutesLeft)} left): ` +
+        `order-remove.mjs ${s.date}, then order-add.mjs ${s.date} --dagens ${s.missed[0].slot}\n`,
+    );
+  }
 
   if (clashes.length) {
     console.log('🚨 ORDER ON A DAY YOU\'RE AWAY');
@@ -165,6 +190,9 @@ function renderText({ authNote, clashes, open, suggestion, handled, byDate, away
       `${urgent ? '⏰' : '⏳'} ${describeDate(suggestion.day.deliveryDate)} needs an order — ` +
         `${formatCountdown(d.minutesLeft)} left (by ${osloTime(d.at)})${urgent ? ' — TODAY' : ''}`,
     );
+    for (const m of suggestion.ranked.ukesmeny.mustHaves) {
+      console.log(`   ⭐ MUST-HAVE: ${m.label}: ${m.dish}`);
+    }
     const pick = suggestion.ranked.shortlist[0];
     if (pick) console.log(`   Pick: ${pick.name} — ${pick.price}, ${pick.categoryName}`);
     for (const f of suggestion.ranked.ukesmeny.flagged) {

@@ -85,6 +85,12 @@ a perfect suggestion delivered after 13:00 is useless.
 suggest an alternative, and never imply another order should be placed. Two orders for one
 day is the failure mode this exists to prevent.
 
+The one exception: `⭐ Must-have on the menu` under an existing order (and `⭐ MUST-HAVE` in
+`daily.mjs`). Ordering days ahead is how a must-have gets missed, so say it and offer the
+**swap** — remove, then add — never a second order, and only on the user's yes.
+
+`⭐ Must-have` above a pick outranks the pick: lead with it.
+
 Away days print `🏠 Not in the office` and are skipped by default — that is correct, not a
 gap. `--include-away` shows them if the user asks.
 
@@ -102,7 +108,9 @@ node scripts/fetch-menu.mjs            # next orderable day
 node scripts/fetch-menu.mjs --week     # Mon–Fri
 ```
 
-Filtered to Ukesmeny, Ferdigretter, Brødmat, Wraps and Salater. `--all-categories` for cake,
+Filtered to Ukesmeny, Ferdigretter, Brødmat, Wraps and Salater. When you relay it, relay
+**every** Ukesmeny slot — warm ones too. Grepping for "Dagens rett" alone once hid a
+chili con carne (Dagens varmrett) the user would have ordered. `--all-categories` for cake,
 drinks and groceries.
 
 ## Credentials
@@ -133,6 +141,10 @@ shallow check still passed.
   only to subscription-generated orders. If you do not use subscriptions, ignore it.
 - **The Ukesmeny product names are meaningless.** Every day's chicken salad is called
   "Dagens rett". The dish is in `beskrivelse`. Quote the description, never the product name.
+  **Quote it in full, everywhere — tables, choice labels, option descriptions.** Shortening
+  "Stekt sopp og marinert roastbiffsalat" to "roastbiffsalat" hid the mushrooms and got a
+  dish ordered that the user rejected on sight (2026-11-13). The ingredient you trim is the
+  one they'd have said no to.
   When ordering one, `--dagens rett` handles the variation and size; the confirmation prints
   the dish so the user can see what they're actually getting.
 - **`delivery_day` order meta is ENGLISH** (`monday`), while the menu's `dag` field is

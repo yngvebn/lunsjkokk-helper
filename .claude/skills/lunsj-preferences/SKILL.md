@@ -47,6 +47,7 @@ Cover these. Use `AskUserQuestion` with concrete options naming real dishes and 
 | Portion | Dagens rett Vanlig 79 kr or Stor 89 kr | `portion.dagensRett` |
 | Ukesmeny vs à la carte | lead with which | `menuStrategy.default` |
 | Specific dishes | a favourite that would bore them daily; a dish to bury (`low`) or ban (`never`) | `categories.perDishOverrides` |
+| Must-haves | a dish they'd be upset to miss — **any slot, warm included** | `menuStrategy.mustHave` (words matched against the dish text) |
 | Repetition | how much sameness is fine | `repetition` |
 | Discount range | do they see INNOM or Hakone categories on the site? | `--discount-group` on the CLIs |
 

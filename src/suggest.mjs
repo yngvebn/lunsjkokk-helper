@@ -52,12 +52,29 @@ const SOFT_AVOID = -60;
 const DISH_FAVOURITE = 60;
 const DISH_LOW = -60;
 const REPEAT_PENALTY = -120;
+const MUST_HAVE = 400;
+// A nudge, not a takeover: enough to reorder within a category, not to beat the home
+// category on its own. The bigger effect is on the Ukesmeny flag below.
+const LIKED = 25;
 
 /** Only these Ukesmeny slots are cold, so only these are ever candidates. */
 const COLD_SLOTS = ['rett', 'paasmurt'];
 
 const wordRx = (words) => (words?.length ? new RegExp(words.map(escapeRx).join('|'), 'i') : null);
 const escapeRx = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * Which `avoid` terms an item hits. A term matches an allergen by its exact API spelling,
+ * or the item's text as a case-insensitive substring. Both, because a dislike like "sopp"
+ * is an ingredient rather than an allergen and only exists in the description, and
+ * Norwegian compounds ("kantarellsopp", "valnøtter") rule out whole-word matching.
+ * Substring errs towards over-matching, which is the right direction for an exclusion.
+ */
+export function avoidHits(terms, text, allergener = []) {
+  if (!terms?.length) return [];
+  const haystack = String(text ?? '').toLowerCase();
+  return terms.filter((t) => allergener.includes(t) || haystack.includes(String(t).toLowerCase()));
+}
 
 function categoryTier(prefs, slug) {
   if (prefs.categories.primary?.includes(slug)) return 'primary';
@@ -82,9 +99,16 @@ function scoreItem(item, slug, prefs, { avoidNames = new Set(), eligible = true,
   let score = CATEGORY_WEIGHT[tier] ?? 0;
   if (tier && tier !== 'primary') reasons.push(`${tier} category`);
 
+  const override = prefs.categories.perDishOverrides?.[item.name];
   if (preferred?.test(text)) {
     score += PROTEIN_PREFERRED;
     reasons.push('preferred protein');
+  } else if (override === 'occasional-favourite') {
+    // A named favourite already says "I want this" — the protein rule is a proxy for that
+    // and shouldn't overrule it. Without this, a meatless favourite (Middelhavssalat) sat
+    // below every chicken wrap even when due.
+    score += PROTEIN_PREFERRED;
+    reasons.push('favourite, protein rule waived');
   } else if (acceptable?.test(text)) {
     score += PROTEIN_ACCEPTABLE;
     reasons.push('acceptable protein');
@@ -92,13 +116,12 @@ function scoreItem(item, slug, prefs, { avoidNames = new Set(), eligible = true,
     reasons.push('no preferred protein');
   }
 
-  const softHits = (item.allergener ?? []).filter((a) => prefs.avoid.soft?.includes(a));
+  const softHits = avoidHits(prefs.avoid?.soft, text, item.allergener ?? []);
   if (softHits.length) {
     score += SOFT_AVOID;
     reasons.push(`contains ${softHits.join(', ')} (disliked, not excluded)`);
   }
 
-  const override = prefs.categories.perDishOverrides?.[item.name];
   if (override === 'occasional-favourite') {
     // "I love lasagne, but not every day" — a favourite that ranks second every single day
     // isn't a treat, it's a fixture. But being on cooldown doesn't make it *worse* than a
@@ -121,6 +144,17 @@ function scoreItem(item, slug, prefs, { avoidNames = new Set(), eligible = true,
   if (item.kcal) score += item.kcal / 100;
   else reasons.push('no kcal data');
 
+  if (prefs.mustHaveRx?.test(`${item.name} ${item.description ?? ''}`)) {
+    score += MUST_HAVE;
+    reasons.push('a must-have');
+  }
+
+  const liked = prefs.likedRx && `${item.name} ${item.description ?? ''}`.match(prefs.likedRx);
+  if (liked) {
+    score += LIKED;
+    reasons.push(`liked (${liked[0].toLowerCase()})`);
+  }
+
   if (avoidNames.has(item.name)) {
     score += REPEAT_PENALTY;
     reasons.push('had or suggested this yesterday');
@@ -138,6 +172,7 @@ function scoreItem(item, slug, prefs, { avoidNames = new Set(), eligible = true,
  */
 export function rankDay(day, prefs, { avoidNames = new Set(), recentNames = [], weekday = null } = {}) {
   const exclude = new Set(prefs.excludeFromMealRanking ?? []);
+  prefs = { ...prefs, mustHaveRx: wordRx(prefs.menuStrategy?.mustHave), likedRx: wordRx(prefs.menuStrategy?.likes) };
   const occasional = occasionalEligibility(day, prefs, recentNames, weekday);
 
   const candidates = [];
@@ -151,6 +186,9 @@ export function rankDay(day, prefs, { avoidNames = new Set(), recentNames = [], 
       }
       // A dish they've ruled out: not an add-on, so not in extras either — just gone.
       if (prefs.categories.perDishOverrides?.[item.name] === 'never') continue;
+      // Same for anything on the hard list — that's what "hard" promises (an allergy, or
+      // "I won't eat that"), so it must never reach a suggestion, not merely rank low.
+      if (avoidHits(prefs.avoid?.hard, `${item.name} ${item.description ?? ''}`, item.allergener ?? []).length) continue;
       const elig = occasional(item.name);
       const { score, reasons, tier, heldBack, heldBackReason } = scoreItem(entry, group.slug, prefs, {
         avoidNames,
@@ -231,11 +269,15 @@ const contentWords = (text) =>
  *   repeat  — the best à la carte pick is repeat-penalised, so the usuals ARE repetitive
  *   novel   — the dish offers ingredients today's à la carte catalogue doesn't have,
  *             i.e. it's something you couldn't order anyway
+ *   liked   — it matches `menuStrategy.likes` (a cuisine or style, e.g. tex-mex). Narrow
+ *             by construction, so it doesn't reintroduce the absolute trigger's noise.
+ *
+ * `menuStrategy.mustHave` overrides all of it, in every slot — warm ones included. A
+ * dish you'd be upset to miss is not something to weigh against the usual sandwich.
  */
 function rankUkesmeny(day, prefs, best, candidates = []) {
-  if (!day.dagens) return { available: false, flagged: [], considered: [] };
+  if (!day.dagens) return { available: false, flagged: [], mustHaves: [], considered: [] };
   const preferred = wordRx(prefs.proteins.preferred);
-  const softAvoid = wordRx(prefs.avoid.soft);
 
   // Everything today's à la carte list already offers, as a bag of words.
   const catalogueWords = new Set();
@@ -243,21 +285,27 @@ function rankUkesmeny(day, prefs, best, candidates = []) {
 
   const bestIsRepeat = Boolean(best?.reasons?.some((r) => r.includes('yesterday')));
 
-  const considered = COLD_SLOTS.map((key) => day.dagens[key])
-    .filter(Boolean)
+  const considered = Object.values(day.dagens)
+    .filter((slot) => slot && (COLD_SLOTS.includes(slot.slot) || prefs.mustHaveRx?.test(slot.dish)))
+    // A hard exclusion beats a must-have: "chili con carne" with something you can't eat
+    // in it is still something you can't eat.
+    .filter((slot) => !avoidHits(prefs.avoid?.hard, slot.dish, slot.allergener ?? []).length)
     .map((slot) => {
+      const mustHave = Boolean(prefs.mustHaveRx?.test(slot.dish));
       const hitsProtein = Boolean(preferred?.test(slot.dish));
-      const hitsAvoid =
-        Boolean(softAvoid?.test(slot.dish)) || (slot.allergener ?? []).some((a) => prefs.avoid.soft?.includes(a));
+      const hitsAvoid = avoidHits(prefs.avoid?.soft, slot.dish, slot.allergener ?? []).length > 0;
 
       const novelWords = [...contentWords(slot.dish)].filter((w) => !catalogueWords.has(w));
       const isNovel = novelWords.length >= 3;
+      const likedMatch = prefs.likedRx ? slot.dish.match(prefs.likedRx) : null;
 
       const reasons = [];
+      if (mustHave) reasons.push('a must-have');
       if (hitsProtein) reasons.push('preferred protein');
       if (hitsAvoid) reasons.push('contains something disliked');
       if (bestIsRepeat) reasons.push('à la carte pick would repeat');
       if (isNovel) reasons.push(`offers ${novelWords.slice(0, 4).join(', ')}`);
+      if (likedMatch) reasons.push(`liked (${likedMatch[0].toLowerCase()})`);
 
       return {
         slot: slot.slot,
@@ -274,9 +322,15 @@ function rankUkesmeny(day, prefs, best, candidates = []) {
         isNovel,
         novelWords,
         reasons,
-        flagged: hitsProtein && !hitsAvoid && (bestIsRepeat || isNovel),
+        mustHave,
+        flagged: mustHave || (hitsProtein && !hitsAvoid && (bestIsRepeat || isNovel || Boolean(likedMatch))),
       };
     });
 
-  return { available: true, considered, flagged: considered.filter((c) => c.flagged) };
+  return {
+    available: true,
+    considered,
+    flagged: considered.filter((c) => c.flagged && !c.mustHave),
+    mustHaves: considered.filter((c) => c.mustHave),
+  };
 }

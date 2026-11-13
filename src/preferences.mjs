@@ -144,6 +144,12 @@ export function validatePreferences(profile) {
       if (profile.avoid[k] != null && !Array.isArray(profile.avoid[k])) problems.push(`avoid.${k} must be an array`);
     }
   }
+  if (profile.menuStrategy?.mustHave != null && !Array.isArray(profile.menuStrategy.mustHave)) {
+    problems.push('menuStrategy.mustHave must be an array');
+  }
+  if (profile.menuStrategy?.likes != null && !Array.isArray(profile.menuStrategy.likes)) {
+    problems.push('menuStrategy.likes must be an array');
+  }
   if (profile.portion?.dagensRett != null && !/^(vanlig|stor)$/i.test(profile.portion.dagensRett)) {
     problems.push('portion.dagensRett must be "Vanlig" or "Stor"');
   }

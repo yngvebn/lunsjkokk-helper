@@ -253,6 +253,33 @@ test('a "never" dish is gone from candidates and extras alike', () => {
   assert.ok(!r.extras.some((e) => e.name === 'Baguette med ost'));
 });
 
+const mustHavePrefs = { ...PREFS, menuStrategy: { mustHave: ['chili con carne'] } };
+const chiliDay = () =>
+  makeDay({
+    dagens: {
+      rett: dagens('Pastasalat med roastbiff', { slot: 'rett' }),
+      varmrett: dagens('Chili con carne med potetmos.', { slot: 'varmrett', label: 'Dagens varmrett' }),
+    },
+  });
+
+test('a must-have is surfaced even in a warm Ukesmeny slot', () => {
+  const u = rankDay(chiliDay(), mustHavePrefs).ukesmeny;
+  assert.equal(u.mustHaves.length, 1);
+  assert.equal(u.mustHaves[0].slot, 'varmrett');
+  assert.ok(!u.flagged.some((f) => f.mustHave), 'listed once, as a must-have, not also as a 💡');
+});
+
+test('without a must-have, warm slots stay out', () => {
+  const u = rankDay(chiliDay(), PREFS).ukesmeny;
+  assert.ok(!u.considered.some((c) => c.slot === 'varmrett'));
+  assert.equal(u.mustHaves.length, 0);
+});
+
+test('an à la carte must-have outranks the home category', () => {
+  const prefs = { ...PREFS, menuStrategy: { mustHave: ['kyllingwrap'] } };
+  assert.equal(rankDay(makeDay(), prefs).shortlist[0].name, 'Kyllingwrap');
+});
+
 test('a disliked allergen sinks an item but never removes it', () => {
   const day = makeDay({
     alacarte: [
@@ -266,6 +293,53 @@ test('a disliked allergen sinks an item but never removes it', () => {
   const r = rankDay(day, PREFS);
   assert.ok(r.candidates.some((c) => c.name === 'Nøttesandwich med skinke'), 'dislike, not allergy — stays selectable');
   assert.equal(r.candidates[0].name, 'Baguette med ost', 'but ranked below');
+});
+
+test('a soft dislike in the description sinks an item, not just an allergen', () => {
+  // "sopp" is no allergen, so the old allergen-only check let a mushroom baguette top the list.
+  const day = makeDay({
+    alacarte: [
+      {
+        slug: 'brodmat',
+        name: 'Brødmat',
+        items: [item('Baguette med skinke', { description: 'Med stekt kantarellsopp' }), item('Baguette med ost')],
+      },
+    ],
+  });
+  const r = rankDay(day, { ...PREFS, avoid: { hard: [], soft: ['sopp'] } });
+  assert.ok(r.candidates.some((c) => c.name === 'Baguette med skinke'), 'soft — still selectable');
+  assert.equal(r.candidates[0].name, 'Baguette med ost');
+});
+
+test('a hard exclusion removes an à la carte item, by allergen or by text', () => {
+  const day = makeDay({
+    alacarte: [
+      {
+        slug: 'brodmat',
+        name: 'Brødmat',
+        items: [
+          item('Baguette med skinke', { description: 'Med stekt sopp' }),
+          item('Sandwich med kylling', { allergener: ['Sesamfrø'] }),
+          item('Baguette med ost'),
+        ],
+      },
+    ],
+  });
+  const r = rankDay(day, { ...PREFS, avoid: { hard: ['sopp', 'Sesamfrø'], soft: [] } });
+  assert.deepEqual(r.candidates.map((c) => c.name), ['Baguette med ost']);
+});
+
+test('a hard exclusion removes a Ukesmeny dish, even a must-have', () => {
+  const prefs = { ...mustHavePrefs, avoid: { hard: ['sopp'], soft: [] } };
+  const day = makeDay({
+    dagens: {
+      rett: dagens('Stekt sopp og marinert roastbiffsalat med byggryn.'),
+      varmrett: dagens('Chili con carne med sopp.', { slot: 'varmrett', label: 'Dagens varmrett' }),
+    },
+  });
+  const u = rankDay(day, prefs).ukesmeny;
+  assert.equal(u.considered.length, 0);
+  assert.equal(u.mustHaves.length, 0);
 });
 
 test('a "low" override sinks below a normal item in the same category', () => {
@@ -303,6 +377,53 @@ test('a recently ordered favourite is suppressed even when due by weekday', () =
   const lasagne = r.candidates.find((c) => c.name === 'Lasagne');
   assert.ok(lasagne.reasons.some((x) => x.includes('last 7 days')));
   assert.ok(!r.shortlist.some((c) => c.name === 'Lasagne'));
+});
+
+test('a meatless favourite, when due, outranks the protein rule', () => {
+  const day = makeDay({
+    weekday: 'fredag',
+    alacarte: [
+      { slug: 'brodmat', name: 'Brødmat', items: [item('Sandwich med skinke')] },
+      { slug: 'wraps', name: 'Wraps', items: [item('Grønnsakswrap')] },
+    ],
+  });
+  const prefs = { ...PREFS, categories: { ...PREFS.categories, perDishOverrides: { Grønnsakswrap: 'occasional-favourite' } } };
+  assert.equal(rankDay(day, prefs).shortlist[0].name, 'Grønnsakswrap');
+  assert.equal(rankDay(day, PREFS).shortlist[0].name, 'Sandwich med skinke', 'and only because it is a favourite');
+});
+
+const likesPrefs = { ...PREFS, menuStrategy: { likes: ['taco', 'mexicansk'] } };
+
+test('a liked style reorders within a category', () => {
+  const day = makeDay({
+    alacarte: [{ slug: 'wraps', name: 'Wraps', items: [item('Kyllingwrap'), item('Tacowrap med kylling')] }],
+  });
+  assert.equal(rankDay(day, PREFS).shortlist[0].name, 'Kyllingwrap');
+  const top = rankDay(day, likesPrefs).shortlist[0];
+  assert.equal(top.name, 'Tacowrap med kylling');
+  assert.ok(top.reasons.includes('liked (taco)'));
+});
+
+test('a liked style is a nudge, not a takeover of the home category', () => {
+  const day = makeDay({
+    alacarte: [
+      { slug: 'brodmat', name: 'Brødmat', items: [item('Sandwich med skinke')] },
+      { slug: 'wraps', name: 'Wraps', items: [item('Tacowrap med kylling')] },
+    ],
+  });
+  assert.equal(rankDay(day, likesPrefs).shortlist[0].name, 'Sandwich med skinke');
+});
+
+test('a liked Ukesmeny dish with a preferred protein interrupts the pick', () => {
+  // Duplicates the à la carte vocabulary, so only the like can flag it.
+  const day = makeDay({ dagens: { rett: dagens('Mexicansk sandwich med skinke') } });
+  assert.equal(rankDay(day, PREFS).ukesmeny.flagged.length, 0);
+  assert.equal(rankDay(day, likesPrefs).ukesmeny.flagged.length, 1);
+});
+
+test('a liked dish without a preferred protein still does not interrupt', () => {
+  const day = makeDay({ dagens: { rett: dagens('Mexicansk salat med kikerter') } });
+  assert.ok(!rankDay(day, likesPrefs).ukesmeny.flagged.some((f) => f.dish.includes('kikerter')));
 });
 
 test('avoidNames pushes yesterday down', () => {
@@ -796,6 +917,7 @@ test('validatePreferences catches the mistakes that empty the shortlist', () => 
   );
   assert.match(validatePreferences({ categories: { primary: ['x'] }, portion: { dagensRett: 'Enorm' } })[0], /Vanlig/);
   assert.match(validatePreferences({ categories: { primary: ['x'] }, proteins: { preferred: 'kylling' } })[0], /must be an array/);
+  assert.match(validatePreferences({ categories: { primary: ['x'] }, menuStrategy: { likes: 'taco' } })[0], /likes must be an array/);
 });
 
 test('the shipped example profile is valid', () => {

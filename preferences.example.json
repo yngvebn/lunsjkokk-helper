@@ -11,7 +11,7 @@
   "avoid": {
     "hard": [],
     "soft": [],
-    "$note": "Allergen names as the API spells them: Gluten, Melk, Egg, Sennep, Sulfitt, Soya, Sesamfrø, Nøtter, Peanøtter, Fisk, Selleri, Svinekjøtt. 'hard' is excluded outright; 'soft' is only deprioritised. IMPORTANT: this reads a website's allergen field and is not a medical guarantee — for a real allergy, verify on the site."
+    "$note": "Allergen names as the API spells them: Gluten, Melk, Egg, Sennep, Sulfitt, Soya, Sesamfrø, Nøtter, Peanøtter, Fisk, Selleri, Svinekjøtt. 'hard' is excluded outright; 'soft' is only deprioritised. Each term matches an allergen by exact name OR the dish name/description as a case-insensitive substring, so ingredients that aren't allergens work too (e.g. 'sopp' catches 'kantarellsopp'). IMPORTANT: this reads a website's allergen field and is not a medical guarantee — for a real allergy, verify on the site."
   },
 
   "temperature": {
@@ -37,7 +37,11 @@
 
   "menuStrategy": {
     "default": "alacarte",
-    "$note": "'alacarte' leads with the standing catalogue and surfaces the Ukesmeny only as an interruption; 'ukesmeny' leads with the day's dish. Only the two cold Ukesmeny slots (Dagens rett, Dagens påsmurt) are ever candidates."
+    "$note": "'alacarte' leads with the standing catalogue and surfaces the Ukesmeny only as an interruption; 'ukesmeny' leads with the day's dish. Only the two cold Ukesmeny slots (Dagens rett, Dagens påsmurt) are ever candidates — except for mustHave.",
+    "mustHave": [],
+    "$mustHaveNote": "Words matched against every Ukesmeny dish (warm slots included) and every à la carte name/description, e.g. [\"chili con carne\"]. A match is shown above the pick, and flagged on days you've already ordered something else while a swap is still possible.",
+    "likes": [],
+    "$likesNote": "Words for a cuisine or style you're drawn to, e.g. [\"taco\", \"mexicansk\"]. Gives à la carte matches a small nudge, and lets a Ukesmeny dish with a preferred protein interrupt the pick. Keep the words specific: a broad one like \"chili\" also hits sweet-chili Asian dishes."
   },
 
   "repetition": {

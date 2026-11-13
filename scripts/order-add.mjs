@@ -34,6 +34,9 @@ const osloTime = (iso) =>
     minute: '2-digit',
   }).format(new Date(iso));
 
+/** Quote for copy-paste, so `--name "Club Sandwich"` survives the round trip. */
+const shellArg = (a) => (/^[\w.:/-]+$/.test(a) ? a : `"${a.replace(/"/g, '\\"')}"`);
+
 function parseArgs(argv) {
   const opts = { date: null, yes: false, productId: null, name: null, dagens: null, allowLate: false, allowWeekend: false };
   for (let i = 0; i < argv.length; i++) {
@@ -230,7 +233,8 @@ async function main() {
     console.log('\nDRY RUN — nothing was ordered.');
     console.log('  would run createDailyOrder with:');
     console.log(JSON.stringify(input, null, 2).split('\n').map((l) => '    ' + l).join('\n'));
-    console.log(`\nTo do it: node scripts/order-add.mjs ${opts.date} --yes`);
+    // Echo the flags as typed: dropping --name here once pointed at the default pick instead.
+    console.log(`\nTo do it: node scripts/order-add.mjs ${process.argv.slice(2).map(shellArg).join(' ')} --yes`);
     return;
   }
 
